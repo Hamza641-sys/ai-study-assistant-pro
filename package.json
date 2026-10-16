@@ -1,0 +1,11 @@
+{
+  "name": "ai-study-assistant-pro",
+  "version": "1.0.0",
+  "description": "AI Study Assistant Pro - Full Stack GenAI Capstone Project",
+  "scripts": {
+    "install-all": "cd server && npm install && cd ../client && npm install",
+    "dev": "start \"SERVER\" cmd /k \"cd server && node server.js\" && start \"CLIENT\" cmd /k \"cd client && npm run dev\"",
+    "start:server": "cd server && node server.js",
+    "start:client": "cd client && npm run dev"
+  }
+}
