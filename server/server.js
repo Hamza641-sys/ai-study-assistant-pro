@@ -21,36 +21,63 @@ import voiceRoutes        from './routes/voiceRoutes.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-// ─── Connect to MongoDB ───────────────────────────────────────────────────────
-await connectDB();
-
-// ─── App setup ────────────────────────────────────────────────────────────────
 const app  = express();
+// Railway provides PORT env var — must use it exactly
 const PORT = process.env.PORT || 5000;
+
+// Track DB connection state
+let dbConnected = false;
+
+// ─── Start server FIRST (before DB) so healthcheck passes ─────────────────────
+// Railway healthcheck needs server to respond quickly
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀 Server running on port ${PORT}`);
+  console.log(`📌 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Health: http://0.0.0.0:${PORT}/health\n`);
+});
+
+// Connect DB after server starts
+connectDB().then(() => {
+  dbConnected = true;
+  console.log('✅ DB connected, all routes active');
+}).catch((err) => {
+  console.error('❌ DB connection failed:', err.message);
+});
 
 // ─── Security & Parsing Middleware ────────────────────────────────────────────
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? [process.env.CLIENT_URL, /\.vercel\.app$/]
-    : process.env.CLIENT_URL || 'http://localhost:5173',
+    ? [process.env.CLIENT_URL, /\.vercel\.app$/, /\.railway\.app$/]
+    : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-app.use(express.json({ limit: '1mb' }));        // Limit JSON body size
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// Apply general rate limiter to all API routes
+// Rate limiter
 app.use('/api', generalLimiter);
 
-// ─── Health Check ─────────────────────────────────────────────────────────────
+// ─── Health Check — always returns 200 so Railway is happy ───────────────────
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'AI Study Assistant API is running',
+    db: dbConnected ? 'connected' : 'connecting',
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
+  });
+});
+
+// Root route
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'AI Study Assistant Pro API',
+    health: '/health',
+    api: '/api',
   });
 });
 
@@ -64,17 +91,8 @@ app.use('/api/quizzes',       quizRoutes);
 app.use('/api/dashboard',     dashboardRoutes);
 app.use('/api/voice',         voiceRoutes);
 
-// ─── 404 & Error Handlers (must be last) ──────────────────────────────────────
+// ─── Error Handlers ───────────────────────────────────────────────────────────
 app.use(notFound);
 app.use(errorHandler);
-
-// ─── Start Server ─────────────────────────────────────────────────────────────
-// Listen on 0.0.0.0 for Railway/Render deployment
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚀 Server running on port ${PORT}`);
-  console.log(`📌 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔗 API base:     http://localhost:${PORT}/api\n`);
-});
 
 export default app;
