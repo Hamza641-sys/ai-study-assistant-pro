@@ -4,9 +4,13 @@
   "description": "Backend server for AI Study Assistant Pro",
   "main": "server.js",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "echo 'No build step required'"
   },
   "keywords": ["ai", "study", "education", "genai"],
   "author": "",
